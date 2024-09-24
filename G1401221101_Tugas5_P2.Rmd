@@ -1,0 +1,201 @@
+---
+title: "TUGAS MPDW"
+author: "irsyadparama"
+date: "2024-09-23"
+output: html_document
+---
+
+# **Import Data**
+
+```{r}
+library(readxl)
+data<- read_excel("C:/Users/Irsyad Parama/Downloads/DATA MPDW.xlsx" , sheet ='201-300')
+
+#memasukan data hanya baris 363 hingga 483 aja
+datakeseluruhan<-data[1:101,]
+head(datakeseluruhan)
+str(datakeseluruhan)
+```
+
+## **Eksplorasi Data**
+
+```{r}
+datakeseluruhan.ts<-ts(datakeseluruhan$`Tavg`)
+summary(datakeseluruhan.ts)
+```
+
+### **Plot Time Series**
+
+```{r}
+ts.plot(datakeseluruhan.ts, xlab="Time Periode ", ylab="Akumulasi", 
+        main = "Time Series Plot")
+points(datakeseluruhan.ts)
+```
+
+```{r}
+lattice :: densityplot(as.vector (datakeseluruhan.ts))
+```
+
+```{r}
+datakeseluruhan.ts <- na.omit(datakeseluruhan.ts)
+mean(density(datakeseluruhan.ts)$x)
+```
+
+```{r}
+acf(datakeseluruhan.ts)
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *slowly* *tails off*
+
+```{r}
+tseries::adf.test(datakeseluruhan.ts)
+```
+
+H0𝐻0 : Data tidak stasioner dalam rataan
+
+H1𝐻1 : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.1552 yang lebih besar dari taraf nyata 5% sehingga tak tolak H0𝐻0 dan menandakan bahwa data tidak stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF.
+
+```{r}
+library(MASS)
+indeks <- seq(1:100)
+bc = boxcox(datakeseluruhan.ts~indeks, lambda = seq (-1, 2, by = 0.01))
+```
+
+```{r}
+lambda<- bc$x[which.max(bc$y)]
+lambda
+```
+
+```{r}
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai *rounded value* (λ𝜆) optimum sebesar **-1** dan pada selang kepercayaan 95% nilai memiliki batas bawah **-1** dan batas atas 1.11. Selang tersebut memuat nilai satu sehingga dapat dikatakan bahwa data rata-rata temperatur di DKI Jakarta tidak stasioner dalam ragam.
+
+### **SUMMARY Data Keseluruhan**
+
+pada data keseluruhan 201 periode dapat di identifikasi stasionernya dengan melakukan uji ACF dengan hasil slowly Tail off lalu dilakukan uji stasioner bagi rataan Menggunakan uji ADF.hasil p-value 0.1552 yang lebih kecil dari taraf nyata 5% sehingga tak tolak H0𝐻0 dan menandakan bahwa data tidak stasioner dalam rataan. lalu dilakukan uji stasioner bagi ragam Menggunakan Box-Cox dengan hasil lambda -1 dan pada selang kepercayaan 95% nilai memiliki batas bawah -1dan batas atas 1.11.
+
+Dari seluruh uji dapat di identifikasi bahwa data keseluruhan 201periode termasuk dalam model yang tidak stasioner
+
+```{r}
+data_training <- datakeseluruhan[1:50,]
+data_training.ts <- ts(data_training$`Tavg`)
+
+mean(data_training.ts)
+```
+
+```{r}
+var(data_training.ts)
+```
+
+```{r}
+ts.plot(data_training.ts, xlab="Time Periode ", ylab="Akumulasi", 
+        main = "Time Series Plot")
+```
+
+```{r}
+acf(data_training.ts)
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *tails off* dan
+
+```{r}
+tseries::adf.test(data_training.ts)
+```
+
+H0H0 : Data tidak stasioner dalam rataan
+
+H1H1 : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.2716 yang lebih besar dari taraf nyata 5% sehingga tak tolak H0H0 dan menandakan bahwa data tidak stasioner dalam rataan.
+
+```{r}
+index_2 <- seq(1:50)
+bc2 = boxcox(data_training.ts~index_2, lambda = seq(-1,2,by=0.01))
+```
+
+```{r}
+lambda <- bc2$x[which.max(bc2$y)]
+lambda
+```
+
+```{r}
+bc2$x[bc2$y > max(bc2$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai *rounded value* (λλ) optimum sebesar **1.51**dan pada selang kepercayaan 95% nilai memiliki batas bawah **-1** dan batas atas 2. Selang tersebut memuat nilai satu sehingga dapat dikatakan bahwa data bangkitan tidak stasioner dalam ragam.
+
+### **SUMMARY Data Training**
+
+Pada data ini terdapat 50 periode, dapat di identifikasi stasionernya dengan melakukan uji ACF dengan hasil Tail off lalu dilakukan uji stasioner bagi rataan Menggunakan uji ADF.hasil p-value
+
+```         
+0.2716
+```
+
+yang lebih besar dari taraf nyata 5% sehingga tak tolak H0H0 dan menandakan bahwa data tidak stasioner dalam rataan. lalu dilakukan uji stasioner bagi ragam Menggunakan Box-Cox dengan hasil lambda 1.51 dan pada selang kepercayaan 95% nilai memiliki batas bawah -1 dan batas atas 2.
+
+Dari seluruh uji dapat di identifikasi bahwa data training 50 periode termasuk dalam model yang stasioner akan tetapi tidak stasioner terhadap rataannya
+
+```{r}
+data_uji <- datakeseluruhan[51:100,]
+data_uji.ts <- ts(data_uji$`Tavg`)
+
+mean(data_uji.ts)
+```
+
+```{r}
+var(data_uji.ts)
+```
+
+```{r}
+ts.plot(data_uji.ts, xlab="Time Periode ", ylab="Akumulasi", 
+        main = "Time Series Plot")
+```
+
+```{r}
+acf(data_uji.ts)
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *slowly* *tail off*.
+
+```{r}
+tseries::adf.test(data_uji.ts)
+```
+
+H0H0 : Data tidak stasioner dalam rataan
+
+H1H1 : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.344 yang lebih besar dari taraf nyata 5% sehingga tak tolak H0H0 dan menandakan bahwa data tidak stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF.
+
+```{r}
+index3 <- seq(51:100)
+bc3 = boxcox(data_uji.ts~index3, lambda = seq(-1,2,by=0.01))
+```
+
+```{r}
+lambda <- bc3$x[which.max(bc3$y)]
+lambda
+```
+
+```{r}
+bc3$x[bc3$y > max(bc3$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai *rounded value* (λλ) optimum sebesar **-1** dan pada selang kepercayaan 95% nilai memiliki batas bawah **-1** dan batas atas **2**. Selang tersebut memuat nilai satu sehingga dapat dikatakan tidak stasioner dalam ragam.
+
+### **SUMMARY Data Uji**
+
+Pada data ini terdapat 50 periode, dapat di identifikasi stasionernya dengan melakukan uji ACF dengan hasil cut off lalu dilakukan uji stasioner bagi rataan Menggunakan uji ADF.hasil p-value
+
+```         
+0.344
+```
+
+yang lebih besar dari taraf nyata 5% sehingga tak tolak H0H0 dan menandakan bahwa data tidak stasioner dalam rataan. lalu dilakukan uji stasioner bagi ragam Menggunakan Box-Cox dengan hasil lambda -1 dan pada selang kepercayaan 95% nilai memiliki batas bawah -1 dan batas atas 2.’
+
+Dari seluruh uji dapat di identifikasi bahwa data uji 50 periode termasuk dalam model yang tidak stasioner namun tidak stasioner terhadap rataannya
