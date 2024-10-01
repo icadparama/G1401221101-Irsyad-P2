@@ -1,0 +1,197 @@
+---
+title: "P6"
+author: "Irsyad Parama Dwiputra"
+date: "2024-10-01"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(forecast)
+library(TSA)
+library(TTR)
+library(aTSA)
+library(graphics)
+library(readxl)
+```
+
+\#**Input Data**
+
+```{r}
+data <- read_xlsx("C:/Users/Irsyad Parama/Downloads/DATA MPDW.xlsx", sheet = "201-300")
+start_date <- as.Date("20-07-2023")
+end_date <- as.Date("27-10-2023")
+dates <- seq.Date(from = start_date, to = end_date, by = "day")
+
+dates <- dates[1:101]
+
+formatted_dates <- format(dates, "%d/%m/%Y")
+
+
+data <- data.frame(dates = formatted_dates, value = data[1:101, 2])
+head(data)
+str(data)
+```
+
+\#**Eksplorasi Data**
+
+```{r}
+#Objek Time Series
+data.ts <- ts(data$Tavg)
+data.ts
+
+#Plot Time Series
+ts.plot(data.ts, xlab="periode", ylab="Akumulasi Hujan", main= "Time Series Plot Temperatur Average")
+points(data.ts)
+```
+
+\##**Plot Data Penuh**
+
+```{r}
+plot.ts(data.ts, lty=1, xlab="periode", ylab="Hujan", main="Plot Temperatur Average")
+```
+
+Berdasarkan plot data deret waktu, terlihat bahwa data cenderung memiliki trend yang naik. Berdasarkan pola data, pembagian data latih dan data uji ditetapkan dengan proporsi 50:50.
+
+\##**Plot Data Latih**
+
+```{r}
+datatrain <- data[1:50,]
+train.ts <- ts(datatrain$Tavg)
+plot.ts(train.ts, lty=1, xlab="periode", ylab="Hujan", main="Plot Temperatur Average")
+```
+
+Berdasarkan plot data deret waktu pada data latih, terlihat bahwa data tidak memiliki trend yang jelas. Dari pola ini, ada kemungkinan bahwa data bersifat stasioner dalam varian, artinya tidak ada perubahan signifikan dalam nilai rata-rata atau variabilitas data dari waktu ke waktu.
+
+\##**Plot Data Uji**
+
+```{r}
+datatest<-data[51:101,]
+test.ts<-ts(datatest$Tavg)
+plot.ts(test.ts, lty=1, xlab="periode", ylab="Hujan", main="Plot Temperatur Average")
+```
+
+\#**Uji Stasioneritas Data**
+
+\##**Kestasioneran dalam Rataan**
+
+\###***Plot ACF***
+
+```{r}
+acf(train.ts)
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF data menurun secara perlahan (*slowly decaying tails*). Hal ini juga menjadi indikasi bahwa data tidak stasioner dalam rataan
+
+\###***Uji ADF***
+
+```{r}
+tseries::adf.test(train.ts)
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.2716 yang lebih besar dari taraf nyata 5% sehingga tak tolak $H_0$ dan menandakan bahwa data tidak stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF, sehingga ketidakstasioneran model kedepannya harus ditangani
+
+\##**Kestasioneran dalam Ragam**
+
+```{r}
+index <- seq(1:50)
+bc = boxcox(train.ts~index, lambda = seq(-2,by=1))
+
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+#Selang Kepercayaan
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai ($\lambda$) optimum sebesar 1 dan pada selang kepercayaan 95% nilai memiliki batas bawah -2 dan batas atas 1. Selang tersebut memuat tidak memuat nilai satu sehingga dapat dikatakan bahwa data tidak stasioner dalam ragam.
+
+\#**Penanganan (Diff) train.test**
+
+```{r}
+train.diff<-diff(train.ts,differences = 3) 
+plot.ts(train.diff, lty=1, xlab="Periode", ylab="Hujan", main="Plot Akumulasi Hujan")
+```
+
+Berdasarkan plot data deret waktu, terlihat bahwa data sudah stasioner dalam rataan ditandai dengan data bergerak pada nilai rataan tertentu
+
+```{r}
+tseries::adf.test(train.diff)
+```
+
+$H_0$: Data tidak stasioner dalam rataan
+
+$H_0$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat p-value sebesar 0.01 yang kurang dari taraf nyata 5%, maka tolak $H_0$ dan menandakan bahwa data stasioner dalam rataan.
+
+```{r}
+tr.diff.bc <- train.diff + abs(min(train.diff)) + 1
+tr.diff.bc
+```
+
+Ditambahkan konstanta sehingga nilainya positif semua agar bisa dilakukan boxcox
+
+```{r}
+index2 <- seq(1:47)
+bc = boxcox(tr.diff.bc~index2, lambda = seq(-2,5,by=1))
+
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+#Selang kepercayaan
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai ($\lambda$) optimum setelah dilakukan differencing sebesar 0.8282828 dan pada selang kepercayaan 95% nilai memiliki batas bawah 0,1212121 dan batas atas 1,. Selang tersebut memuat nilai satu sehingga dapat dikatakan bahwa data stasioner dalam ragam.
+
+\#**Spesifikasi Model**
+
+```{r}
+eacf(train.diff) 
+```
+
+Menggunakan plot EACF, dapat diambil beberapa model dengan melihat ujung segitiga yang terbentuk, antara lain ARIMA (0,0,2), ARIMA(1,0,3), ARIMA(2,0,4), ARIMA(0,0,3), ARIMA(0,0,4), ARIMA(3,0,5)
+
+\#**Model ARIMA(0,0,2)**
+
+```{r}
+model1.da=Arima(train.diff, order=c(0,0,2),method="ML")
+summary(model1.da) 
+lmtest::coeftest(model1.da) 
+```
+
+\#**Model ARIMA(1,0,3)**
+
+```{r}
+model2.da=Arima(train.diff, order=c(1,0,3),method="ML")
+summary(model2.da) 
+lmtest::coeftest(model2.da) 
+```
+
+\#**Model ARIMA(0,0,4)**
+
+```{r}
+model3.da=Arima(train.diff, order=c(0,0,4),method="ML")
+summary(model3.da) 
+lmtest::coeftest(model3.da)
+```
+
+\#**Model ARIMA(3,0,5)**
+
+```{r}
+model4.da=Arima(train.diff, order=c(3,0,5),method="ML")
+summary(model4.da) 
+lmtest::coeftest(model4.da) 
+```
+
+\#**Kesimpulan**
+
+Berdasarkan pendugaan parameter di atas **Model ARIMA(0,0,4)** merupakan model dengan **AIC** paling kecil **62.17**
